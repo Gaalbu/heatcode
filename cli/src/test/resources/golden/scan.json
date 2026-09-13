@@ -1,0 +1,25 @@
+{
+  "schemaVersion" : "1",
+  "heatcodeVersion" : "0.1.0",
+  "gitCommit" : null,
+  "weights" : {
+    "complexityWeight" : 0.47058823529411764,
+    "duplicationWeight" : 0.2941176470588235,
+    "couplingWeight" : 0.23529411764705882,
+    "churnWeight" : 0.0
+  },
+  "classes" : [ {
+    "className" : "fixture.Sample",
+    "score" : 47.05882352941176,
+    "band" : "YELLOW",
+    "metrics" : {
+      "className" : "fixture.Sample",
+      "cyclomaticComplexity" : 1,
+      "duplicationRatio" : 0.0,
+      "couplingOut" : 0,
+      "churn30d" : 0,
+      "churn90d" : 0,
+      "linesOfCode" : 6
+    }
+  } ]
+}
