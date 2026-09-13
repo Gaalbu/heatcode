@@ -10,12 +10,13 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
+import com.github.javaparser.StaticJavaParser;
 
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 
 @Command(name = "heatcode", mixinStandardHelpOptions = true, version = "0.1.0",
-        description = "Maps technical debt heat in Java projects.", subcommands = {HeatCodeApplication.ScanCommand.class, HeatCodeApplication.CompareCommand.class, HeatCodeApplication.TuiCommand.class})
+        description = "Maps technical debt heat in Java projects.", subcommands = {HeatCodeApplication.ScanCommand.class, HeatCodeApplication.CompareCommand.class, HeatCodeApplication.TuiCommand.class, HeatCodeApplication.ExplainCommand.class})
 public final class HeatCodeApplication implements Runnable {
     public static void main(String[] args) {
         int exitCode = new CommandLine(new HeatCodeApplication()).execute(args);
@@ -83,6 +84,35 @@ public final class HeatCodeApplication implements Runnable {
         @Override public Integer call() throws Exception {
             new HeatCodeTui().open(project, watch, light, noColor);
             return 0;
+        }
+    }
+
+    @Command(name = "explain", description = "Sends one explicitly selected class to an HTTPS LLM endpoint.")
+    static final class ExplainCommand implements Callable<Integer> {
+        @Parameters(index = "0", description = "Project path") Path project;
+        @Parameters(index = "1", description = "Fully qualified or simple class name") String className;
+        @Option(names = "--endpoint", required = true, description = "HTTPS endpoint accepting {prompt}") String endpoint;
+
+        @Override public Integer call() throws Exception {
+            ScanReport report = new ProjectScanner().scan(project);
+            var score = report.classes().stream().filter(item -> item.className().equals(className)
+                    || item.className().endsWith("." + className)).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Class not found in scan: " + className));
+            Path sourceFile;
+            try (var paths = java.nio.file.Files.walk(project)) {
+                sourceFile = paths.filter(java.nio.file.Files::isRegularFile).filter(path -> path.toString().endsWith(".java"))
+                        .filter(path -> !path.toString().contains(java.io.File.separator + ".git" + java.io.File.separator))
+                        .filter(path -> StaticJavaParser.parse(read(path)).findAll(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class).stream()
+                                .anyMatch(type -> type.getFullyQualifiedName().orElse(type.getNameAsString()).equals(score.className()))).findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException("Source not found for class: " + score.className()));
+            }
+            String explanation = new LlmExplainer().explain(endpoint, System.getenv("HEATCODE_LLM_API_KEY"), score, read(sourceFile));
+            System.out.println(explanation);
+            return 0;
+        }
+
+        private static String read(Path path) {
+            try { return java.nio.file.Files.readString(path); } catch (java.io.IOException exception) { throw new IllegalStateException("Cannot read source", exception); }
         }
     }
 }

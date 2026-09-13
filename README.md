@@ -11,6 +11,7 @@ HeatCode maps technical debt in Java projects as a navigable heat map. The MVP s
 ./gradlew :cli:run --args="scan . --save /tmp/heatcode.json --markdown report.md"
 ./gradlew :cli:run --args="compare /tmp/older.json /tmp/heatcode.json"
 ./gradlew :cli:run --args="tui . --watch"
+# HEATCODE_LLM_API_KEY=... ./gradlew :cli:run --args="explain . io.github.gaalbu.heatcode.cli.HeatCodeApplication --endpoint https://example.invalid/explain"
 ```
 
 The project uses Java 21, Gradle 8.10.2, JavaParser, JGit, Picocli and Lanterna. Source code is split into `core` (analysis and contracts) and `cli` (presentation).
@@ -26,6 +27,8 @@ Bands are GREEN below 30, YELLOW from 30 through 70, and RED above 70. When no G
 The JSON report is the source of truth and carries a schema version, scanner version, commit (when available), timestamp, weights and class scores.
 
 Optional project configuration lives in `heatcode.yml`, under `weights:`. The watch mode debounces rapid saves by 300 ms. It updates the report after Java changes; relationship metrics are refreshed on the next scan, so incoming coupling may briefly lag while editing.
+
+The `explain` command is opt-in, sends only the selected class, requires an HTTPS endpoint and reads the API key from `HEATCODE_LLM_API_KEY`; it never sends the whole project automatically.
 
 ## License
 

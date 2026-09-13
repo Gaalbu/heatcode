@@ -1,6 +1,7 @@
 package io.github.gaalbu.heatcode.core;
 
 import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
@@ -27,6 +28,8 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 public final class ProjectScanner {
+    static { StaticJavaParser.getParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_17); }
+
     private static final Set<String> IGNORED = Set.of("build", "target", ".gradle", ".git");
     private final HeatScoreCalculator calculator = new HeatScoreCalculator();
     private final DuplicationAnalyzer duplicationAnalyzer = new DuplicationAnalyzer();
@@ -110,10 +113,19 @@ public final class ProjectScanner {
     }
 
     private static String currentCommit(Path project) {
-        try (Repository repository = new FileRepositoryBuilder().findGitDir(project.toFile()).build()) {
-            var head = repository.resolve("HEAD");
-            return head == null ? null : head.name();
-        } catch (Exception ignored) { return null; }
+        Path cursor = project.toAbsolutePath().normalize();
+        while (cursor != null) {
+            Path gitDirectory = cursor.resolve(".git");
+            if (Files.isDirectory(gitDirectory)) {
+                try (Repository repository = new FileRepositoryBuilder().setGitDir(gitDirectory.toFile())
+                        .setWorkTree(cursor.toFile()).readEnvironment().build()) {
+                    var head = repository.resolve("HEAD^{commit}");
+                    return head == null ? null : head.name();
+                } catch (Exception ignored) { return null; }
+            }
+            cursor = cursor.getParent();
+        }
+        return null;
     }
 
     private record ParsedClass(String name, Path file, ClassOrInterfaceDeclaration type, String source) { }
