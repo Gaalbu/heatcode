@@ -19,11 +19,12 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public final class HeatCodeTui {
     public void open(Path project, boolean watch, boolean light, boolean noColor) throws Exception {
-        AtomicReference<ScanReport> report = new AtomicReference<>(new ProjectScanner().scan(project));
+        ProjectScanner scanner = new ProjectScanner();
+        AtomicReference<ScanReport> report = new AtomicReference<>(scanner.scan(project));
         try (var terminal = new DefaultTerminalFactory().createTerminal(); Screen screen = new TerminalScreen(terminal)) {
             screen.startScreen();
             ProjectWatchService watcher = watch ? new ProjectWatchService(project, changed -> {
-                try { report.set(new ProjectScanner().scan(project)); } catch (Exception ignored) { }
+                try { report.set(scanner.update(project, changed, report.get())); } catch (Exception ignored) { }
             }) : null;
             if (watcher != null) watcher.start();
             try {
